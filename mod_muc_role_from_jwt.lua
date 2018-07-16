@@ -27,7 +27,7 @@ end
 local seen={}
 
 function dump(t,i)
-	module:log("error", "dump table size: " .. len(t));
+	module:log("debug", "dump table size: " .. len(t));
 	seen[t]=true
 	local s={}
 	local n=0
@@ -38,7 +38,7 @@ function dump(t,i)
 		table.sort(s)
 	end
 	for k,v in ipairs(s) do
-		module:log("error", "dump: " .. tostring(i) .. tostring(v))
+		module:log("debug", "dump: " .. tostring(i) .. tostring(v))
 		v=t[v]
 		if type(v)=="table" and not seen[v] then
 			dump(v,i.."\t")
@@ -48,40 +48,40 @@ end
 
 
 room_mt.get_affiliation = function(room, jid)
-    --module:log("error", "--- entered get_affiliation: jid=" .. jid);
-    --module:log("error", debug.traceback());
+    --module:log("debug", "--- entered get_affiliation: jid=" .. jid);
+    --module:log("debug", debug.traceback());
 --    dump(_G,"");
     -- dump(_G.full_sessions, "");
-    --module:log("error", "sessions - " .. inspect(prosody.full_sessions));
+    --module:log("debug", "sessions - " .. inspect(prosody.full_sessions));
     local bare_jid = jid_bare(jid);
---    module:log("error", "jid : " .. session);
+--    module:log("debug", "jid : " .. session);
     --local sess = occupant:get_presence(jid);
-    --module.log("error", "sess - " .. sess);
+    --module.log("debug", "sess - " .. sess);
     local affiliation = nil;
 
     -- TODO: don't allow earlier sessions to override affiliation claim from later ones
     for conn, session in pairs(prosody.full_sessions) do
-        --module:log("error", "test session: " .. jid .. " - " .. session.full_jid);
+        --module:log("debug", "test session: " .. jid .. " - " .. session.full_jid);
         if jid_bare(session.full_jid) == bare_jid then
-            --module:log("error", "found session - " .. inspect(session));
-            --module:log("error", "found session - " .. session.full_jid);
+            --module:log("debug", "found session - " .. inspect(session));
+            --module:log("debug", "found session - " .. session.full_jid);
             if valid_affiliations[session.jitsi_meet_room_affiliation] ~= nil then
                 affiliation = session.jitsi_meet_room_affiliation;
-                -- module:log("error", "setting affil - " .. affiliation);
+                -- module:log("debug", "setting affil - " .. affiliation);
             end
         end
     end
     local default_focus_affil = "owner";
     local node, host, resource = jid_split(jid);
     if host == "auth.jitsi-test.kiwiirc.com" then
-        module:log("error", "affil (focus): " .. default_focus_affil .. " jid: " .. jid);
+        module:log("debug", "affil (focus): " .. default_focus_affil .. " jid: " .. jid);
         return default_focus_affil;
     end
     local default_affil = "member";
     if affiliation == nil then
-        module:log("error", "affil (default): " .. default_affil .. " jid: " .. jid);
+        module:log("debug", "affil (default): " .. default_affil .. " jid: " .. jid);
         return default_affil;
     end
-    module:log("error", "affil: " .. affiliation .. " jid: " .. jid);
+    module:log("debug", "affil: " .. affiliation .. " jid: " .. jid);
     return affiliation;
 end
