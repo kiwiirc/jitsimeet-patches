@@ -55,6 +55,8 @@ function room_mt:get_default_role(affiliation)
 	return role, valid_roles[role or "none"];
 end
 module:hook("muc-get-default-role", function(event)
+	-- debugging
+	module:log("error", "muc-get-default-role affilrank=" .. event.affiliation_rank);
 	if event.affiliation_rank >= valid_affiliations.admin then
 		return "moderator";
 	elseif event.affiliation_rank >= valid_affiliations.none then
@@ -918,6 +920,13 @@ function room_mt:handle_admin_query_get_command(origin, stanza)
 			return true;
 		end
 	elseif _rol and valid_roles[_rol or "none"] and not _aff then
+		-- debugging
+		local nonDefaultRole = self:get_role(self:get_occupant_jid(actor));
+		if nonDefaultRole then
+			module:log("error", "got non-default role: " .. nonDefaultRole .. " for " .. actor .. " in handle_admin_query_get_command");
+		else
+			module:log("error", "got default role");
+		end
 		local role = self:get_role(self:get_occupant_jid(actor)) or self:get_default_role(affiliation);
 		if valid_roles[role or "none"] >= valid_roles.moderator then
 			if _rol == "none" then _rol = nil; end
@@ -1171,6 +1180,7 @@ function room_mt:each_affiliation(with_affiliation)
 end
 
 function room_mt:set_affiliation(actor, jid, affiliation, reason)
+	module:log("error", string.format("set_affiliation: actor=%s jid=%s affiliation=%s reason=%s", tostring(actor), tostring(jid), tostring(affiliation), tostring(reason)));
 	if not actor then return nil, "modify", "not-acceptable"; end;
 
 	local node, host, resource = jid_split(jid);
@@ -1276,11 +1286,13 @@ function room_mt:set_affiliation(actor, jid, affiliation, reason)
 end
 
 function room_mt:get_role(nick)
+	module:log("error", "getting role: nick=" .. nick);
 	local occupant = self:get_occupant_by_nick(nick);
 	return occupant and occupant.role or nil;
 end
 
 function room_mt:set_role(actor, occupant_jid, role, reason)
+	module:log("error", string.format("setting role: actor=%s occupant_jid=%s role=%s reason=%s", tostring(actor), tostring(occupant_jid), tostring(role), tostring(reason)));
 	if not actor then return nil, "modify", "not-acceptable"; end
 
 	local occupant = self:get_occupant_by_nick(occupant_jid);

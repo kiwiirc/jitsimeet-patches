@@ -331,6 +331,13 @@ local function save_to_history(self, stanza)
 		stored_stanza = st.clone(stanza);
 		local actor = jid_bare(self._occupants[stanza.attr.from].jid);
 		local affiliation = self:get_affiliation(actor) or "none";
+		-- debugging
+		local nonDefaultRole = self:get_role(actor);
+		if nonDefaultRole then
+			module:log("error", "got non-default role: " .. nonDefaultRole .. " for " .. actor .. " in save_to_history");
+		else
+			module:log("error", "got default role x");
+		end
 		local role = self:get_role(actor) or self:get_default_role(affiliation);
 		stored_stanza:add_direct_child(st.stanza("x", { xmlns = xmlns_muc_user })
 			:tag("item", { affiliation = affiliation; role = role; jid = actor }));
