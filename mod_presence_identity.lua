@@ -20,3 +20,5 @@ end
 
 module:hook("pre-presence/bare", on_message);
 module:hook("pre-presence/full", on_message);
+module:hook("presence/full", on_message); -- this is the only one that fires now?
+
