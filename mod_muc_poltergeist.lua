@@ -177,6 +177,7 @@ end
 -- so we can reuse it and we that real user will replace the poltergiest
 prosody.events.add_handler("pre-jitsi-authentication", function(session)
 
+    module:log("debug", "using context_user in pre-jitsi-authentication");
     if (session.jitsi_meet_context_user) then
         local room = get_room(
             session.jitsi_bosh_query_room,
@@ -457,6 +458,7 @@ function handle_create_poltergeist (event)
     else
         username = generate_uuid();
         store_username(room, user_id, username);
+        module:log("debug", "using context_user in handle_create_poltergeist");
         local context = {
             user = {
                 id = user_id;

@@ -1,6 +1,9 @@
 local jid = require "util.jid";
 local runner, waiter = require "util.async".runner, require "util.async".waiter;
 
+package.path = '?.lua;' .. package.path
+local inspect = require('/usr/share/jitsi-meet/prosody-plugins/inspect');
+
 local muc_domain_prefix
     = module:get_option_string("muc_mapper_domain_prefix", "conference");
 
@@ -88,11 +91,15 @@ end
 function update_presence_identity(
     stanza, user, group, creator_user, creator_group)
 
+    module:log("debug",
+        "update_presence_identity: " .. "stanza=" .. tostring(stanza) .. " user=" .. inspect(user) .. " group=" .. inspect(group) .. " creator_user=" .. inspect(creator_user) .. " creator_group=" .. inspect(creator_group));
+
     -- First remove any 'identity' element if it already
     -- exists, so it cannot be spoofed by a client
     stanza:maptags(
         function(tag)
             for k, v in pairs(tag) do
+                module:log("debug", "maptags k=" .. k .. " v=" .. tostring(v));
                 if k == "name" and v == "identity" then
                     return nil
                 end

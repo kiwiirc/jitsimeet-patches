@@ -9,5 +9,6 @@ local room_mt = muc_service.room_mt;
 
 
 room_mt.get_affiliation = function (room, jid)
+    module:log("error", "affil - allowner");
     return "owner";
 end

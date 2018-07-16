@@ -21,6 +21,10 @@ local http_headers = {
 local cacheSize = module:get_option_number("jwt_pubkey_cache_size", 128);
 local cache = require"util.cache".new(cacheSize);
 
+package.path = '?.lua;' .. package.path
+local inspect = require('/usr/share/jitsi-meet/prosody-plugins/inspect');
+
+
 local Util = {}
 Util.__index = Util
 
@@ -191,6 +195,7 @@ end
 -- @return nil and error or the extracted claims from the token
 function Util:verify_token(token, secret)
     local claims, err = jwt.decode(token, secret, true);
+    module:log("debug", "decoded jwt token: " .. inspect(claims));
     if claims == nil then
         return nil, err;
     end
@@ -291,6 +296,7 @@ function Util:process_and_verify_token(session)
         claims, msg = self:verify_token(session.auth_token, self.appSecret);
     end
     if claims ~= nil then
+        module:log("debug", "claims " .. inspect(claims));
         -- Binds room name to the session which is later checked on MUC join
         session.jitsi_meet_room = claims["room"];
         session.jitsi_meet_joined = claims["joined"];
@@ -339,6 +345,7 @@ function Util:process_and_verify_token(session)
             session.jitsi_meet_context_group = claims["context"]["group"];
           end
         end
+        module:log("debug", "set context_user " .. inspect(session.jitsi_meet_context_user));
         return true;
     else
         return false, "not-allowed", msg;
@@ -356,6 +363,7 @@ end
 --         it and returns false in case verification was processed
 --         and was not successful
 function Util:verify_room(session, room_address)
+    module:log("debug", "entered verify_room with auth_token=" .. inspect(session.auth_token));
     if self.allowEmptyToken and session.auth_token == nil then
         module:log(
             "debug",
@@ -384,6 +392,7 @@ function Util:verify_room(session, room_address)
     local query_auth = first_query_partner ~= nil;
     if query_auth then
         local client_nick = session.jitsi_meet_context_user ~= nil and session.jitsi_meet_context_user.name;
+        module:log("debug", "attempting query auth a=" .. first_query_partner .. " b=" .. second_query_partner .. " nick=" .. tostring(client_nick) .. " server=" .. server_address .. " issuer=" .. tostring(session.jitsi_meet_issuer));
         local participant = client_nick == first_query_partner or client_nick == second_query_partner;
         local same_server = server_address == session.jitsi_meet_issuer;
         -- return participant and same_server;
@@ -391,6 +400,7 @@ function Util:verify_room(session, room_address)
             return true;
         else
             module:log("debug", "query auth failed. continuing...");
+            -- module:log("debug", inspect(session));
         end
     end
 
@@ -400,6 +410,7 @@ function Util:verify_room(session, room_address)
         auth_room = nil
     end
     if not self.enableDomainVerification then
+	module:log("debug", "no domain verification: auth_room=" .. tostring(auth_room) .. " room=" .. tostring(room));
         -- if auth_room is missing, this means user is anonymous (no token for
         -- its domain) we let it through, jicofo is verifying creation domain
         if auth_room and room ~= string.lower(auth_room) and auth_room ~= '*' or query_auth then
@@ -419,6 +430,7 @@ function Util:verify_room(session, room_address)
     -- so we will use the actual name of the room when constructing strings
     -- to verify subdomains and domains to simplify checks
     local room_to_check;
+	module:log("debug", "auth_room=" .. auth_room);
     if auth_room == '*' then
         -- authorized for accessing any room assign to room_to_check the actual
         -- room name
