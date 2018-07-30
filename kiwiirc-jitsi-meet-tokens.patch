@@ -1,0 +1,292 @@
+diff --git a/mod_muc_role_from_jwt.lua b/mod_muc_role_from_jwt.lua
+new file mode 100644
+index 0000000..f730928
+--- /dev/null
++++ b/mod_muc_role_from_jwt.lua
+@@ -0,0 +1,87 @@
++local muc_service = module:depends("muc");
++local room_mt = muc_service.room_mt;
++
++--local occupant = muc_service.occupant_mt;
++module:set_global();
++--module:depends("c2s");
++--local sessions = module:shared("c2s/sessions");
++local sessions = module:shared("sessions");
++
++local muc_util = module:require "muc/util";
++local valid_affiliations = muc_util.valid_affiliations;
++
++local jid_bare = require "util.jid".bare;
++local jid_split = require "util.jid".split;
++
++-- package.path = '?.lua;' .. package.path
++-- local inspect = require('/usr/share/jitsi-meet/prosody-plugins/inspect');
++
++function len(t)
++	local n = 0;
++	for _ in pairs(t) do
++		n = n + 1
++	end
++	return n
++end
++
++local seen={}
++
++function dump(t,i)
++	module:log("debug", "dump table size: " .. len(t));
++	seen[t]=true
++	local s={}
++	local n=0
++	for k in pairs(t) do
++		n=n+1 s[n]=k
++	end
++	if pcall(function () table.sort(s); end) then
++		table.sort(s)
++	end
++	for k,v in ipairs(s) do
++		module:log("debug", "dump: " .. tostring(i) .. tostring(v))
++		v=t[v]
++		if type(v)=="table" and not seen[v] then
++			dump(v,i.."\t")
++		end
++	end
++end
++
++
++room_mt.get_affiliation = function(room, jid)
++    --module:log("debug", "--- entered get_affiliation: jid=" .. jid);
++    --module:log("debug", debug.traceback());
++--    dump(_G,"");
++    -- dump(_G.full_sessions, "");
++    --module:log("debug", "sessions - " .. inspect(prosody.full_sessions));
++    local bare_jid = jid_bare(jid);
++--    module:log("debug", "jid : " .. session);
++    --local sess = occupant:get_presence(jid);
++    --module.log("debug", "sess - " .. sess);
++    local affiliation = nil;
++
++    -- TODO: don't allow earlier sessions to override affiliation claim from later ones
++    for conn, session in pairs(prosody.full_sessions) do
++        --module:log("debug", "test session: " .. jid .. " - " .. session.full_jid);
++        if jid_bare(session.full_jid) == bare_jid then
++            --module:log("debug", "found session - " .. inspect(session));
++            --module:log("debug", "found session - " .. session.full_jid);
++            if valid_affiliations[session.jitsi_meet_room_affiliation] ~= nil then
++                affiliation = session.jitsi_meet_room_affiliation;
++                -- module:log("debug", "setting affil - " .. affiliation);
++            end
++        end
++    end
++    local default_focus_affil = "owner";
++    local node, host, resource = jid_split(jid);
++    if host == "auth.conference.kiwiirc.com" then
++        module:log("debug", "affil (focus): " .. default_focus_affil .. " jid: " .. jid);
++        return default_focus_affil;
++    end
++    local default_affil = "member";
++    if affiliation == nil then
++        module:log("debug", "affil (default): " .. default_affil .. " jid: " .. jid);
++        return default_affil;
++    end
++    module:log("debug", "affil: " .. affiliation .. " jid: " .. jid);
++    return affiliation;
++end
+diff --git a/mod_presence_identity.lua b/mod_presence_identity.lua
+index 4db397e..2dc997a 100644
+--- a/mod_presence_identity.lua
++++ b/mod_presence_identity.lua
+@@ -20,3 +20,4 @@ end
+ 
+ module:hook("pre-presence/bare", on_message);
+ module:hook("pre-presence/full", on_message);
++module:hook("presence/full", on_message); -- this is the only one that fires now?
+diff --git a/token/util.lib.lua b/token/util.lib.lua
+index f957768..a9d8dab 100644
+--- a/token/util.lib.lua
++++ b/token/util.lib.lua
+@@ -194,6 +194,7 @@ function Util:verify_token(token, secret)
+     if claims == nil then
+         return nil, err;
+     end
++    -- claims["context"] = nil;
+ 
+     local alg = claims["alg"];
+     if alg ~= nil and (alg == "none" or alg == "") then
+@@ -204,20 +205,41 @@ function Util:verify_token(token, secret)
+     if issClaim == nil then
+         return nil, "'iss' claim is missing";
+     end
++
+     --check the issuer against the accepted list
+-    local issCheck, issCheckErr = self:verify_issuer(issClaim);
+-    if issCheck == nil then
+-        return nil, issCheckErr;
++    --local issCheck, issCheckErr = self:verify_issuer(issClaim);
++    --if issCheck == nil then
++    --    return nil, issCheckErr;
++    --end
++
++    local subClaim = claims["sub"];
++    if subClaim == nil then
++        claims["sub"] = "kiwiirc.com";
+     end
+ 
+-    local roomClaim = claims["room"];
++    local roomClaim = claims["channel"];
+     if roomClaim == nil then
+-        return nil, "'room' claim is missing";
++        return nil, "'channel' claim is missing";
++    end
++    local encRoom = issClaim .. "/" .. roomClaim;
++    claims["room"] = encRoom:gsub('.', function (c) return string.format('%02X', string.byte(c)) end):lower();
++    module:log("error", "room encoded from " .. encRoom .. " as " .. claims.room);
++
++    --[[ local joinedClaim = claims["joined"];
++    if not joinedClaim then
++        return nil, "'joined' claim isn't true";
++    end --]]
++
++    local nickClaim = claims["nick"];
++    if nickClaim == nil then
++        return nil, "'nick' claim is missing";
+     end
+ 
+     local audClaim = claims["aud"];
+     if audClaim == nil then
+-        return nil, "'aud' claim is missing";
++        audClaim = "kiwiClientID";
++        claims["aud"] = audClaim;
++        -- return nil, "'aud' claim is missing";
+     end
+     --check the audience against the accepted list
+     local audCheck, audCheckErr = self:verify_audience(audClaim);
+@@ -235,7 +257,6 @@ end
+ -- session.jitsi_meet_domain - the domain name value from the token
+ -- session.jitsi_meet_context_user - the user details from the token
+ -- session.jitsi_meet_context_group - the group value from the token
+--- session.jitsi_meet_context_features - the features value from the token
+ -- @param session the current session
+ -- @return false and error
+ function Util:process_and_verify_token(session)
+@@ -273,11 +294,43 @@ function Util:process_and_verify_token(session)
+     if claims ~= nil then
+         -- Binds room name to the session which is later checked on MUC join
+         session.jitsi_meet_room = claims["room"];
++        session.jitsi_meet_joined = claims["joined"];
+         -- Binds domain name to the session
+         session.jitsi_meet_domain = claims["sub"];
++        session.jitsi_meet_issuer = claims["iss"];
++
++        affil = {};
++        affil.owner = false;
++        affil.admin = false;
++        affil.member = false;
++        affil.none = true;
++        affil.outcast = false;
++
++        if (claims.modes ~= nil and type(claims.modes) == "table") then
++          for i, mode in ipairs(claims.modes) do
++            if mode == "o" then affil.owner = true
++          --  elseif mode == "%" then affil.member = true
++          --  elseif mode == "+" then affil.member = true
++            end
++          end
++        end
++
++        if affil.owner then affil.final = "owner"
++        elseif affil.admin then affil.final = "admin"
++        elseif affil.member then affil.final = "member"
++        elseif affil.none then affil.final = "none"
++        else affil.final = "outcast"
++        end
++        --module:log("error", "---- Benz log msg - " .. affil.final .. " from " .. inspect(claims));
++	--module:log("error", debug.traceback());
++        session.jitsi_meet_room_affiliation = affil.final;
++
++        local contextUser = {};
++        contextUser["name"] = claims["nick"];
++        session.jitsi_meet_context_user = contextUser;
+ 
+         -- Binds the user details to the session if available
+-        if claims["context"] ~= nil then
++        if false and claims["context"] ~= nil then
+           if claims["context"]["user"] ~= nil then
+             session.jitsi_meet_context_user = claims["context"]["user"];
+           end
+@@ -286,11 +339,6 @@ function Util:process_and_verify_token(session)
+             -- Binds any group details to the session
+             session.jitsi_meet_context_group = claims["context"]["group"];
+           end
+-
+-          if claims["context"]["features"] ~= nil then
+-            -- Binds any features details to the session
+-            session.jitsi_meet_context_features = claims["context"]["features"];
+-          end
+         end
+         return true;
+     else
+@@ -324,11 +372,38 @@ function Util:verify_room(session, room_address)
+         return true;
+     end
+ 
++    -- allow anonymous users because apparently that's how jicofo works. hopefully something else actually enforces access control elsewhere???
++    if not session.jitsi_meet_issuer then
++        module:log("debug", "allowing anonymous session");
++        return true
++    end
++
++    -- handle auth for one-on-one query conversations
++    local decoded_room_name = hex.from(room);
++    module:log("debug", "decoded room name: " .. decoded_room_name);
++    local server_address, first_query_partner, second_query_partner = decoded_room_name:match("^([^/]+)/query[-]([^#]+)#([^#]+)$");
++    local query_auth = first_query_partner ~= nil;
++    if query_auth then
++        local client_nick = session.jitsi_meet_context_user ~= nil and session.jitsi_meet_context_user.name;
++        local participant = client_nick == first_query_partner or client_nick == second_query_partner;
++        local same_server = server_address == session.jitsi_meet_issuer;
++        -- return participant and same_server;
++        if participant and same_server then
++            return true;
++        else
++            module:log("debug", "query auth failed. continuing...");
++        end
++    end
++
+     local auth_room = session.jitsi_meet_room;
++    if auth_room and not session.jitsi_meet_joined then
++        module:log("debug", "ignoring room claim without joined claim");
++        auth_room = nil
++    end
+     if not self.enableDomainVerification then
+         -- if auth_room is missing, this means user is anonymous (no token for
+         -- its domain) we let it through, jicofo is verifying creation domain
+-        if auth_room and room ~= string.lower(auth_room) and auth_room ~= '*' then
++        if auth_room and room ~= string.lower(auth_room) and auth_room ~= '*' or query_auth then
+             return false;
+         end
+ 
+diff --git a/util.lib.lua b/util.lib.lua
+index 34d39a3..5cffbe2 100644
+--- a/util.lib.lua
++++ b/util.lib.lua
+@@ -137,6 +137,10 @@ function update_presence_identity(
+                 if k == "name" and v == "identity" then
+                     return nil
+                 end
++                -- Also remove the nick element
++                if k == "name" and v == "nick" then
++                    return nil
++                end
+             end
+             return tag
+         end
+@@ -144,6 +148,9 @@ function update_presence_identity(
+     module:log("debug",
+         "Presence after previous identity stripped: %s", tostring(stanza));
+ 
++    -- Override nick
++    stanza:tag("nick", {xmlns='http://jabber.org/protocol/nick'}):text(user.name):up();
++
+     stanza:tag("identity"):tag("user");
+     for k, v in pairs(user) do
+         stanza:tag(k):text(v):up();
