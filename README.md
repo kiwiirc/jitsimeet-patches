@@ -1,91 +1,59 @@
-# Jitsi Meet KiwIRC patches
+# Jitsi Meet KiwiIRC patches
 
 ## About
 
-This repository contains a set of patches to Jitsi Meet's Prosody plugins for use with [kiwiirc/plugin-conference]. The patches are necessary when using `{ "conference.secure": true }` in your KiwiIRC client config. You only need this if you want to self-host your own video/audio conference server for use with KiwiIRC. The patches are primarily adding functionality to mirror the access control model from the IRC channel to the XMPP conference room.
+This repository contains a set of patches to Jitsi Meet's Prosody plugins for use with [kiwiirc/plugin-conference].
+The purpose of the patches is to mirror the access control model from the IRC channel to the XMPP conference room.
+The patches are necessary when using `{ "conference.secure": true }` in your KiwiIRC client config.
 
-## Installation instructions
+## Prerequisites
 
-Jitsi Meet packaging may not be working with Ubuntu 18.04. It works for us on Ubuntu 16.04.
+Before proceeding, you'll need to complete the installation of the Jitsi Meet backend, including the optional `jitsi-meet-tokens` package. See [Jitsi Meet's instructions].
 
-You must use an interactive shell when installing `jitsi-meet` because the packages will ask questions via debconf during installation and errors will occur if no debconf frontend is available.
+A few hints:
 
-### Basic Jitsi Meet install
+- As of September 2018, the `jitsi-meet-tokens` depends on `prosody-trunk`, rather than the `prosody` package available in the main Ubuntu 16.04 repositories. See [Prosody's documentation] for use of their apt repository.
+- The Jitsi Meet packaging may have issues on Ubuntu 18.04.
+- Use an interactive shell when installing `jitsi-meet` because the packages will ask questions via debconf during installation and errors will occur if no debconf frontend is available.
+- Install `nginx` **before** `jitsi-meet` if you want the `jitsi-meet` package to automatically create an nginx site configuration for you.
 
-In a terminal session:
+## Jitsi Meet configuration
 
-```shell
-# add Jitsi Meet repo and import apt signing key
-echo 'deb https://download.jitsi.org stable/' | sudo tee /etc/apt/sources.list.d/jitsi-stable.list
-wget -qO -  https://download.jitsi.org/jitsi-key.gpg.key | sudo apt-key add -
+The `application secret` set in the prosody config needs to match the secret set in your webircgateway config.
 
-# add prosody-trunk repo and import apt signing key
-echo deb http://packages.prosody.im/debian $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/prosody-trunk.list
-wget -qO - https://prosody.im/files/prosody-debian-packages.key | sudo apt-key add -
+The `application ID` in the prosody config must match the hostname in the upstream section of your webircgateway config **as well as** the server hostname that the KiwiIRC *client* uses (i.e. `startupOptions.server` in the client `config.json`)
 
-# install the packages
-sudo apt-get update
-sudo apt-get install nginx # must be installed *before* jitsi-meet
-sudo apt-get install jitsi-meet jitsi-meet-tokens
+## Post-installation patching
+
+Finally, we need to apply the KiwiIRC patches from this repository whenever `jitsi-meet-tokens` is installed or upgraded:
+
+```console
+$ git clone --branch jitsi-meet-patches git@github.com:kiwiirc/plugin-conference-jitsimeet.git kiwiirc-jitsimeet-patches
+Cloning into 'kiwiirc-jitsimeet-patches'...
+remote: Enumerating objects: 271, done.
+remote: Total 271 (delta 0), reused 0 (delta 0), pack-reused 271
+Receiving objects: 100% (271/271), 418.22 KiB | 0 bytes/s, done.
+Resolving deltas: 100% (34/34), done.
+Checking connectivity... done.
+
+$ cd kiwiirc-jitsimeet-patches
+
+$ sudo ./patch_jitsi-meet-tokens_for_kiwi.sh
+Kiwi patcher for Jitsi Meet Tokens
+
+Applying kiwiirc-jitsi-meet-tokens.patch to /usr/share/jitsi-meet/prosody-plugins/
+...
+Done!
 ```
 
-### Jitsi Meet configuration
+## Restart Prosody
 
-When you install the jitsi-meet packages, there will be an interactive question and answer session via debconf. Here are some examples of how you might answer those prompts:
+After patching the Prosody plugins, you'll need to restart the `prosody` service before they take effect.
 
-#### Hostname
-
-Example: `my-jitsi-meet-backend.192.168.1.220.xip.io`
-
-#### SSL certificate for the Jitsi Meet instance
-
-`"Generate a new self-signed certificate (You will later get a chance to obtain a Let's encrypt certificate)"`
-
-#### The application ID to be used by token authentication plugin
-
-Example: `192.168.1.220`
-
-This **must** match the hostname in the upstream section of your webircgateway config **as well as** the server hostname that the *client* uses (i.e. `startupOptions.server` in the client `config.json`)
-
-If it doesn't match, the token that's automatically acquired from the webircgateway via the EXTJWT command be rejected by the Prosody server and the conference will not work. When this is the problem, you will likely see an error like `[connection.js] <n.l>:  CONNECTION FAILED: connection.passwordRequired` in your browser console when attempting to create a conference.
-
-#### The application secret to be used by token authentication plugin
-
-Example: `verysecret`
-
-This **must** match the secret set in your webircgateway config.
-
-### Post-installation patching
-
-Jitsi Meet's patches need to be manually applied every time `prosody` is installed or upgraded.
-
-```shell
-sudo patch -N /usr/lib/prosody/modules/mod_bosh.lua /usr/share/jitsi-meet/prosody-plugins/mod_bosh.lua.patch
+```console
+$ sudo systemctl restart prosody.service
 ```
-
-And finally, we need to apply the KiwiIRC patches whenever `jitsi-meet-tokens` is installed or upgraded:
-
-```shell
-# FIXME git repo url/branch will change
-git clone git@github.com:kiwiirc/plugin-conference-jitsimeet.git
-cd plugin-conference-jitsimeet
-git checkout jitsi-meet-patches
-chmod +x patch_jitsi-meet-tokens_for_kiwi.sh
-sudo ./patch_jitsi-meet-tokens_for_kiwi.sh
-```
-
-### Restart Prosody
-
-After patching the Prosody plugins, you'll need to restart the `prosody` service before they take effect. Note that the service will be enabled *and* started automatically when you first install it.
-
-```shell
-sudo systemctl restart prosody.service
-```
-
-## References
-
-Parts of the above instructions are summarized from [the Jitsi Meet docs] and [the Prosody docs]. See those links for more information. If you run into trouble, come by [#kiwiirc](ircs://chat.freenode.net:6697/#kiwiirc) on Freenode or open a github issue here.
 
 [kiwiirc/plugin-conference]: https://github.com/kiwiirc/plugin-conference
-[the Jitsi Meet docs]: https://github.com/jitsi/jitsi-meet/blob/master/doc/quick-install.md
-[the Prosody docs]: https://prosody.im/download/package_repository
+[Jitsi Meet's instructions]: https://github.com/jitsi/jitsi-meet/blob/master/doc/quick-install.md
+[Prosody's documentation]: https://prosody.im/download/package_repository
