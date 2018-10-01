@@ -78,7 +78,7 @@ See `/usr/share/doc/jitsi-meet-web-config/config.js` for an example of the confi
 Finally, we need to apply the KiwiIRC patches from this repository whenever `jitsi-meet-tokens` is installed or upgraded:
 
 ```console
-$ git clone --branch jitsi-meet-patches git@github.com:kiwiirc/plugin-conference-jitsimeet.git kiwiirc-jitsimeet-patches
+$ git clone https://github.com/kiwiirc/jitsimeet-patches kiwiirc-jitsimeet-patches
 Cloning into 'kiwiirc-jitsimeet-patches'...
 remote: Enumerating objects: 271, done.
 remote: Total 271 (delta 0), reused 0 (delta 0), pack-reused 271
