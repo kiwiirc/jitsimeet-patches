@@ -1,9 +1,9 @@
 diff --git a/mod_muc_role_from_jwt.lua b/mod_muc_role_from_jwt.lua
 new file mode 100644
-index 0000000..f730928
+index 0000000..e709ff5
 --- /dev/null
 +++ b/mod_muc_role_from_jwt.lua
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,88 @@
 +local muc_service = module:depends("muc");
 +local room_mt = muc_service.room_mt;
 +
@@ -52,6 +52,7 @@ index 0000000..f730928
 +	end
 +end
 +
++local jitsi_meet_focus_hostname = module:get_option("jitsi_meet_focus_hostname");
 +
 +room_mt.get_affiliation = function(room, jid)
 +    --module:log("debug", "--- entered get_affiliation: jid=" .. jid);
@@ -79,7 +80,7 @@ index 0000000..f730928
 +    end
 +    local default_focus_affil = "owner";
 +    local node, host, resource = jid_split(jid);
-+    if host == "auth.conference.kiwiirc.com" then
++    if host == jitsi_meet_focus_hostname then
 +        module:log("debug", "affil (focus): " .. default_focus_affil .. " jid: " .. jid);
 +        return default_focus_affil;
 +    end
@@ -101,10 +102,19 @@ index 4db397e..2dc997a 100644
  module:hook("pre-presence/full", on_message);
 +module:hook("presence/full", on_message); -- this is the only one that fires now?
 diff --git a/token/util.lib.lua b/token/util.lib.lua
-index f957768..a9d8dab 100644
+index f957768..6b5cb56 100644
 --- a/token/util.lib.lua
 +++ b/token/util.lib.lua
-@@ -194,6 +194,7 @@ function Util:verify_token(token, secret)
+@@ -185,6 +185,8 @@ function Util:verify_audience(audClaim)
+     return nil, "Invalid audience ('aud' claim)";
+ end
+ 
++local jitsi_meet_domain = module:get_option("jitsi_meet_domain");
++
+ --- Verifies token
+ -- @param token the token to verify
+ -- @param secret the secret to use to verify token
+@@ -194,6 +196,7 @@ function Util:verify_token(token, secret)
      if claims == nil then
          return nil, err;
      end
@@ -112,7 +122,7 @@ index f957768..a9d8dab 100644
  
      local alg = claims["alg"];
      if alg ~= nil and (alg == "none" or alg == "") then
-@@ -204,20 +205,41 @@ function Util:verify_token(token, secret)
+@@ -204,20 +207,41 @@ function Util:verify_token(token, secret)
      if issClaim == nil then
          return nil, "'iss' claim is missing";
      end
@@ -128,7 +138,7 @@ index f957768..a9d8dab 100644
 +
 +    local subClaim = claims["sub"];
 +    if subClaim == nil then
-+        claims["sub"] = "kiwiirc.com";
++        claims["sub"] = jitsi_meet_domain;
      end
  
 -    local roomClaim = claims["room"];
@@ -160,7 +170,7 @@ index f957768..a9d8dab 100644
      end
      --check the audience against the accepted list
      local audCheck, audCheckErr = self:verify_audience(audClaim);
-@@ -235,7 +257,6 @@ end
+@@ -235,7 +259,6 @@ end
  -- session.jitsi_meet_domain - the domain name value from the token
  -- session.jitsi_meet_context_user - the user details from the token
  -- session.jitsi_meet_context_group - the group value from the token
@@ -168,7 +178,7 @@ index f957768..a9d8dab 100644
  -- @param session the current session
  -- @return false and error
  function Util:process_and_verify_token(session)
-@@ -273,11 +294,43 @@ function Util:process_and_verify_token(session)
+@@ -273,11 +296,43 @@ function Util:process_and_verify_token(session)
      if claims ~= nil then
          -- Binds room name to the session which is later checked on MUC join
          session.jitsi_meet_room = claims["room"];
@@ -213,7 +223,7 @@ index f957768..a9d8dab 100644
            if claims["context"]["user"] ~= nil then
              session.jitsi_meet_context_user = claims["context"]["user"];
            end
-@@ -286,11 +339,6 @@ function Util:process_and_verify_token(session)
+@@ -286,11 +341,6 @@ function Util:process_and_verify_token(session)
              -- Binds any group details to the session
              session.jitsi_meet_context_group = claims["context"]["group"];
            end
@@ -225,7 +235,7 @@ index f957768..a9d8dab 100644
          end
          return true;
      else
-@@ -324,11 +372,38 @@ function Util:verify_room(session, room_address)
+@@ -324,11 +374,38 @@ function Util:verify_room(session, room_address)
          return true;
      end
  
