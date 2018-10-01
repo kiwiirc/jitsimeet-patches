@@ -3,19 +3,19 @@
 ## About
 
 This repository contains a set of patches to Jitsi Meet's Prosody plugins for use with [kiwiirc/plugin-conference].
-The purpose of these patches is to mirror the access control model and user identity from the IRC environment to the XMPP conference room.
+The purpose of these patches is to mirror the access control model and user identity from the IRC environment to the Jitsi conference room.
 
 The patches are necessary when using `{ "conference.secure": true }` in your KiwiIRC client config.
 
-You will need a separate Jitsi Meet installation for KiwiIRC, as the patches will make the services incompatible with other uses.
+You will need to host your own Jitsi Meet server for secured KiwiIRC conference calls, as the patches will make the services incompatible with other public Jitsi servers.
 
 ## Prerequisites
 
-Before proceeding, you'll need to complete the installation of the Jitsi Meet backend, including the optional `jitsi-meet-tokens` package. See [Jitsi Meet's instructions].
+Before proceeding, you'll need to complete the installation of the Jitsi Meet backend. Using the apt repository mentioned in [Jitsi Meet's instructions], install the `jitsi-meet` and `jitsi-meet-tokens` packages. e.g. `apt-get install jitsi-meet jitsi-meet-tokens`.
 
 A few hints:
 
-- As of September 2018, the `jitsi-meet-tokens` depends on `prosody-trunk`, rather than the `prosody` package available in the main Ubuntu 16.04 repositories. See [Prosody's documentation] for use of their apt repository.
+- `jitsi-meet-tokens` currently has a dependency on `prosody-trunk`, rather than the `prosody` package available in the main Ubuntu 16.04 repositories. See [Prosody's documentation] to add their apt repository as a package source on your system.
 - The Jitsi Meet packaging may have issues on Ubuntu 18.04.
 - Use an interactive shell when installing `jitsi-meet` because the packages will ask questions via debconf during installation and errors will occur if no debconf frontend is available.
 - Install `nginx` **before** `jitsi-meet` if you want the `jitsi-meet` package to automatically create an nginx site configuration for you.
@@ -28,26 +28,26 @@ The following configuration values will need special attention.
 
 In `/etc/prosody/conf.d/<your jitsi domain>.cfg.lua`:
 
-At the top level of the config, add these two lines, replacing `<your jitsi domain>` with the appropriate value for your installation:
+1. At the top level of the config, add these two lines, replacing `<your jitsi domain>` with the appropriate value for your installation:
 
 ```lua
 jitsi_meet_domain = "<your jitsi domain>";
 jitsi_meet_focus_hostname = "auth" .. jitsi_meet_domain;
 ```
 
-`app_secret` (referred to as `application secret` during the interactive debconf prompts) needs to match the secret set in your webircgateway config.
+2. `app_secret` (referred to as `application secret` during the interactive debconf prompts) needs to match the secret set in your webircgateway config.
 
-`app_id` (`application ID` in debconf) must match the hostname in the upstream section of your webircgateway config **as well as** the server hostname that the KiwiIRC *client* uses (i.e. `startupOptions.server` in the client `config.json`)
+3. `app_id` (`application ID` in debconf) must match the hostname in the upstream section of your webircgateway config **as well as** the server hostname that the KiwiIRC *client* uses (i.e. `startupOptions.server` in the client `config.json`)
 
-Add `"muc_role_from_jwt"; "presence_identity";` to `modules_enabled` in the `"muc"` component.
+4. Add `"muc_role_from_jwt"; "presence_identity";` to `modules_enabled` in the `"muc"` component.
 
-Adjust the storage configuration based on your needs. Commenting out the default value in this config will work as shown below, but see the Jitsi docs for other options:
+5. Adjust the storage configuration based on your needs. Commenting out the default value in this config will work as shown below, but see the Jitsi docs for other options:
 
 ```lua
     -- storage = "null"
 ```
 
-If you're hosting Jitsi on a separate hostname from KiwiIRC, you will need to either add
+6. If you're hosting Jitsi on a separate hostname from KiwiIRC, you will need to either add
 
 ```lua
 cross_domain_bosh = true;
@@ -57,7 +57,7 @@ at the top level of the config or manually add CORS headers in your nginx config
 
 ### Jicofo SIP Communicator properties
 
-Create or open `/etc/jitsi/jicofo/sip-communicator.properties` and add the following line:
+7. Create or open `/etc/jitsi/jicofo/sip-communicator.properties` and add the following line:
 
 ```ini
 org.jitsi.jicofo.DISABLE_AUTO_OWNER=True
@@ -65,7 +65,7 @@ org.jitsi.jicofo.DISABLE_AUTO_OWNER=True
 
 ### Jitsi Meet config
 
-You may also want to disable P2P connectivity in the videobridge's config file at `/etc/jitsi/meet/<your jitsi domain>-config.js`.
+8. You may also want to disable P2P connectivity in the videobridge's config file at `/etc/jitsi/meet/<your jitsi domain>-config.js`.
 
 ```js
 p2p: { enabled: false }
