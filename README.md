@@ -32,7 +32,7 @@ In `/etc/prosody/conf.d/<your jitsi domain>.cfg.lua`:
 
 ```lua
 jitsi_meet_domain = "<your jitsi domain>";
-jitsi_meet_focus_hostname = "auth." .. jitsi_meet_domain;
+jitsi_meet_focus_hostname = "auth.<your jitsi domain>";
 ```
 
 2. `app_secret` (referred to as `application secret` during the interactive debconf prompts) needs to match the secret set in your webircgateway config.
