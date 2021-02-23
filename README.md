@@ -15,12 +15,12 @@ Before proceeding, you'll need to complete the installation of the Jitsi Meet ba
 
 A few hints:
 
-- `jitsi-meet-tokens` currently has a dependency on `prosody-trunk`, rather than the `prosody` package available in the main Ubuntu 16.04 repositories. See [Prosody's documentation] to add their apt repository as a package source on your system.
+- On Ubuntu 16.04 `jitsi-meet-tokens` currently has a dependency on `prosody-trunk`, rather than the `prosody` package available in the main repositories. See [Prosody's documentation] to add their apt repository as a package source on your system.
 - The Jitsi Meet packaging may have issues on Ubuntu 18.04.
 - Use an interactive shell when installing `jitsi-meet` because the packages will ask questions via debconf during installation and errors will occur if no debconf frontend is available.
 - Install `nginx` **before** `jitsi-meet` if you want the `jitsi-meet` package to automatically create an nginx site configuration for you.
 - On debian there is an issue building the dependencies at install time due to a difference in libssl packages. As a workaround, do `sudo apt-get install apt-transport-https libssl1.0-dev luarocks git && sudo luarocks install luacrypto` before trying to install the jitsi packages. `libssl1.0-dev` is needed to build luacrypto, but it will get uninstalled and replaced with `libssl-dev` due to the dependencies specified by jitsi packages later on.
-- On ubuntu 20.04 `liblua5.2-dev` package is required before installing `jitsi-meet-tokens`.
+- On Ubuntu 20.04 / Debian 10 `liblua5.2-dev` package is required before installing `jitsi-meet-tokens`.
 
 ## Jitsi Meet configuration
 
@@ -41,7 +41,7 @@ jitsi_meet_focus_hostname = "auth.<your jitsi domain>";
 
 3. `app_id` (`application ID` in debconf) must match the hostname in the upstream section of your webircgateway config **as well as** the server hostname that the KiwiIRC *client* uses (i.e. `startupOptions.server` in the client `config.json`)
 
-4. Add `"muc_role_from_jwt"; "presence_identity";` to `modules_enabled` in the conference `"muc"` component.
+4. Add `"muc_role_from_jwt"; "presence_identity";` to `modules_enabled` in `Component "conference.<your jitsi domain>" "muc"`.
 
 5. Adjust the storage configuration based on your needs. Commenting out the default value in this config will work as shown below, but see the Jitsi docs for other options:
 
