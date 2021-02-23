@@ -103,7 +103,7 @@ Done!
 After patching and configuring the services, you'll want to restart them so the changes take effect.
 
 ```console
-sudo systemctl restart prosody.service jicofo.service jitsi-videobridge.service
+sudo systemctl restart prosody.service jicofo.service jitsi-videobridge2.service
 ```
 
 [kiwiirc/plugin-conference]: https://github.com/kiwiirc/plugin-conference
